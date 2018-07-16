@@ -30,7 +30,6 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
         private const string TargetPropertyName = "target";
         private const string ArgumentsPropertyName = "arguments";
         private const string HeadersPropertyName = "headers";
-        private const string HasStreamName = "hasStream";
 
         private static readonly string ProtocolName = "json";
         private static readonly int ProtocolVersion = 1;
@@ -136,7 +135,6 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                 ExceptionDispatchInfo argumentBindingException = null;
                 Dictionary<string, string> headers = null;
                 var completed = false;
-                var streamingUpload = false;
 
                 using (var reader = JsonUtils.CreateJsonTextReader(textReader))
                 {
@@ -271,9 +269,6 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                                         JsonUtils.CheckRead(reader);
                                         headers = ReadHeaders(reader);
                                         break;
-                                    case HasStreamName:
-                                        streamingUpload = JsonUtils.ReadForType(reader, typeof(bool));
-                                        break;
                                     default:
                                         // Skip read the property name
                                         JsonUtils.CheckRead(reader);
@@ -312,7 +307,7 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
 
                             message = argumentBindingException != null
                                 ? new InvocationBindingFailureMessage(invocationId, target, argumentBindingException)
-                                : BindInvocationMessage(invocationId, target, arguments, hasArguments, streamingUpload, binder);
+                                : BindInvocationMessage(invocationId, target, arguments, hasArguments, binder);
                         }
                         break;
                     case HubProtocolConstants.StreamInvocationMessageType:
@@ -336,10 +331,18 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                                 : BindStreamInvocationMessage(invocationId, target, arguments, hasArguments, binder);
                         }
                         break;
+                    case HubProtocolConstants.ParameterStreamMessageType:
+                        if (itemToken != null)
+                        {
+                            var itemType = binder.GetStreamItemType(streamId);
+                            item = itemToken.ToObject(itemType, PayloadSerializer);
+                        }
+                        message = BindParamStreamMessage(streamId, item, hasItem, binder);
+                        break;
                     case HubProtocolConstants.StreamItemMessageType:
                         if (itemToken != null)
                         {
-                            var returnType = binder.GetReturnType(invocationId);
+                            var returnType = binder.GetStreamItemType(invocationId);
                             item = itemToken.ToObject(returnType, PayloadSerializer);
                         }
 
@@ -434,6 +437,10 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                             WriteHeaders(writer, m);
                             WriteStreamInvocationMessage(m, writer);
                             break;
+                        case ParamStreamMessage m:
+                            WriteMessageType(writer, HubProtocolConstants.ParameterStreamMessageType);
+                            WriteParamStreamItemMessage(m, writer);
+                            break;
                         case StreamItemMessage m:
                             WriteMessageType(writer, HubProtocolConstants.StreamItemMessageType);
                             WriteHeaders(writer, m);
@@ -523,6 +530,14 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
         private void WriteStreamItemMessage(StreamItemMessage message, JsonTextWriter writer)
         {
             WriteInvocationId(message, writer);
+            writer.WritePropertyName(ItemPropertyName);
+            PayloadSerializer.Serialize(writer, message.Item);
+        }
+
+        private void WriteParamStreamItemMessage(ParamStreamMessage message, JsonTextWriter writer)
+        {
+            writer.WritePropertyName(StreamIdPropertyName);
+            writer.WriteValue(message.StreamId);
             writer.WritePropertyName(ItemPropertyName);
             PayloadSerializer.Serialize(writer, message.Item);
         }
@@ -621,6 +636,20 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
             return new CompletionMessage(invocationId, error, result: null, hasResult: false);
         }
 
+        private HubMessage BindParamStreamMessage(string streamId, object item, bool hasItem, IInvocationBinder binder)
+        {
+            if (string.IsNullOrEmpty(streamId))
+            {
+                throw new InvalidDataException($"Missing required property '{StreamIdPropertyName}");
+            }
+            if (!hasItem)
+            {
+                throw new InvalidDataException($"Missing required property '{ItemPropertyName}");
+            }
+
+            return new ParamStreamMessage(streamId, item);
+        }
+
         private HubMessage BindStreamItemMessage(string invocationId, object item, bool hasItem, IInvocationBinder binder)
         {
             if (string.IsNullOrEmpty(invocationId))
@@ -656,7 +685,7 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
             return new StreamInvocationMessage(invocationId, target, arguments);
         }
 
-        private HubMessage BindInvocationMessage(string invocationId, string target, object[] arguments, bool hasArguments, bool streamingUpload, IInvocationBinder binder)
+        private HubMessage BindInvocationMessage(string invocationId, string target, object[] arguments, bool hasArguments, IInvocationBinder binder)
         {
             if (string.IsNullOrEmpty(target))
             {

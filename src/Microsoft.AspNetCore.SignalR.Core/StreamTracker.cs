@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -14,12 +15,12 @@ namespace Microsoft.AspNetCore.SignalR
     internal class StreamTracker
     {
         private static readonly MethodInfo _buildConverterMethod = typeof(StreamTracker).GetMethods().Single(m => m.Name.Equals("BuildStream"));
-        public Dictionary<string, IStreamConverter> Lookup = new Dictionary<string, IStreamConverter>();
+        public ConcurrentDictionary<string, IStreamConverter> Lookup = new ConcurrentDictionary<string, IStreamConverter>();
 
         /// <summary>
         /// Creates a new stream and returns the ChannelReader for it as an object.
         /// </summary>
-        public object NewStream(string streamId, Type itemType)
+        public object AddStream(string streamId, Type itemType)
         {
             var newConverter = (IStreamConverter)_buildConverterMethod.MakeGenericMethod(itemType).Invoke(null, Array.Empty<object>());
             Lookup[streamId] = newConverter;
@@ -33,9 +34,8 @@ namespace Microsoft.AspNetCore.SignalR
 
         public void Complete(StreamCompleteMessage message)
         {
-            var ConverterToClose = Lookup[message.StreamId];
-            Lookup.Remove(message.StreamId);
-            ConverterToClose.TryComplete(message.HasError ? new Exception(message.Error) : null);
+            Lookup.TryRemove(message.StreamId, out var converter);
+            converter.TryComplete(message.HasError ? new Exception(message.Error) : null);
         }
 
         public static IStreamConverter BuildStream<T>()

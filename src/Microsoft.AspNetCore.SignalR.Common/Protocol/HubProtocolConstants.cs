@@ -47,5 +47,10 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
         /// Represents the stream complete message type.
         /// </summary>
         public const int StreamCompleteMessageType = 8;
+
+        /// <summary>
+        /// Same as StreamItemMessage, except
+        /// </summary>
+        public const int ParameterStreamMessageType = 9;
     }
 }

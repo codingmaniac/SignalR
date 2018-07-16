@@ -17,4 +17,21 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
             return $"StreamItem {{ {nameof(InvocationId)}: \"{InvocationId}\", {nameof(Item)}: {Item ?? "<<null>>"} }}";
         }
     }
+
+    public class ParamStreamMessage : HubMessage
+    {
+        public object Item { get; }
+        public string StreamId { get; }
+
+        public ParamStreamMessage(string streamId, object item)
+        {
+            StreamId = streamId;
+            Item = item;
+        }
+
+        public override string ToString()
+        {
+            return $"StreamItemTwo {{ {nameof(StreamId)}: \"{StreamId}\", {nameof(Item)}: {Item ?? "<<null>>"} }}";
+        }
+    }
 }

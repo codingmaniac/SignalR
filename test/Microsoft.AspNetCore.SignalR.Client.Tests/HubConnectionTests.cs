@@ -170,9 +170,9 @@ namespace Microsoft.AspNetCore.SignalR.Client.Tests
                     await channel.Writer.WriteAsync(number);
 
                     var item = await connection.ReadSentJsonAsync().OrTimeout();
-                    Assert.Equal(HubProtocolConstants.StreamItemMessageType, item["type"]);
+                    Assert.Equal(HubProtocolConstants.ParameterStreamMessageType, item["type"]);
                     Assert.Equal(number, item["item"]);
-                    Assert.Equal(streamId, item["invocationId"]); // I realize this is poorly named, TODO change
+                    Assert.Equal(streamId, item["streamId"]);
                 }
 
                 channel.Writer.TryComplete();
@@ -210,9 +210,9 @@ namespace Microsoft.AspNetCore.SignalR.Client.Tests
                     await channel.Writer.WriteAsync(item);
 
                     var received = await connection.ReadSentJsonAsync().OrTimeout();
-                    Assert.Equal(HubProtocolConstants.StreamItemMessageType, received["type"]);
+                    Assert.Equal(HubProtocolConstants.ParameterStreamMessageType, received["type"]);
                     Assert.Equal(item, received["item"]);
-                    Assert.Equal(streamId, received["invocationId"]);
+                    Assert.Equal(streamId, received["streamId"]);
                 }
             }
         }
@@ -240,7 +240,7 @@ namespace Microsoft.AspNetCore.SignalR.Client.Tests
                     await channel.Writer.WriteAsync(item);
 
                     var received = await connection.ReadSentJsonAsync().OrTimeout();
-                    Assert.Equal(HubProtocolConstants.StreamItemMessageType, received["type"]);
+                    Assert.Equal(HubProtocolConstants.ParameterStreamMessageType, received["type"]);
                     Assert.Equal(item.Foo, received["item"]["foo"]);
                     Assert.Equal(item.Bar, received["item"]["bar"]);
                 }

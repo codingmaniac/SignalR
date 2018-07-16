@@ -222,7 +222,7 @@ namespace Microsoft.AspNetCore.SignalR.Internal
 
                         Log.StartingParameterStream(_logger, placeholder.StreamId);
                         var itemType = methodExecutor.MethodParameters[i].ParameterType.GetGenericArguments()[0];
-                        args[i] = connection.StreamTracker.NewStream(placeholder.StreamId, itemType);
+                        args[i] = connection.StreamTracker.AddStream(placeholder.StreamId, itemType);
                     }
                 }
 

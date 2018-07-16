@@ -500,7 +500,7 @@ namespace Microsoft.AspNetCore.SignalR.Client
                 {
                     while (!token.IsCancellationRequested && reader.TryRead(out var item))
                     {
-                        await SendWithLock(new StreamItemMessage(streamId, item));
+                        await SendWithLock(new ParamStreamMessage(streamId, item));
                         Log.SendingStreamItem(_logger, streamId);
                     }
                 }
