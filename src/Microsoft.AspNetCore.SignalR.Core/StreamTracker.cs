@@ -14,8 +14,8 @@ namespace Microsoft.AspNetCore.SignalR
 {
     internal class StreamTracker
     {
-        private static readonly MethodInfo _buildConverterMethod = typeof(StreamTracker).GetMethods().Single(m => m.Name.Equals("BuildStream"));
-        public ConcurrentDictionary<string, IStreamConverter> Lookup = new ConcurrentDictionary<string, IStreamConverter>();
+        private static readonly MethodInfo _buildConverterMethod = typeof(StreamTracker).GetMethods(BindingFlags.NonPublic | BindingFlags.Static).Single(m => m.Name.Equals("BuildStream"));
+        private ConcurrentDictionary<string, IStreamConverter> _lookup = new ConcurrentDictionary<string, IStreamConverter>();
 
         /// <summary>
         /// Creates a new stream and returns the ChannelReader for it as an object.
@@ -23,35 +23,40 @@ namespace Microsoft.AspNetCore.SignalR
         public object AddStream(string streamId, Type itemType)
         {
             var newConverter = (IStreamConverter)_buildConverterMethod.MakeGenericMethod(itemType).Invoke(null, Array.Empty<object>());
-            Lookup[streamId] = newConverter;
+            _lookup[streamId] = newConverter;
             return newConverter.GetReaderAsObject();
         }
 
-        public Task ProcessItem(StreamItemMessage message)
+        public Task ProcessItem(StreamDataMessage message)
         {
-            return Lookup[message.InvocationId].WriteToStream(message.Item);
+            return _lookup[message.StreamId].WriteToStream(message.Item);
+        }
+        
+        public Type GetStreamItemType(string streamId)
+        {
+            return _lookup[streamId].GetItemType();
         }
 
         public void Complete(StreamCompleteMessage message)
         {
-            Lookup.TryRemove(message.StreamId, out var converter);
+            _lookup.TryRemove(message.StreamId, out var converter);
             converter.TryComplete(message.HasError ? new Exception(message.Error) : null);
         }
 
-        public static IStreamConverter BuildStream<T>()
+        private static IStreamConverter BuildStream<T>()
         {
             return new ChannelConverter<T>();
         }
 
-        public interface IStreamConverter
+        private interface IStreamConverter
         {
-            Type GetReturnType();
+            Type GetItemType();
             object GetReaderAsObject();
             Task WriteToStream(object item);
             void TryComplete(Exception ex);
         }
 
-        internal class ChannelConverter<T> : IStreamConverter
+        private class ChannelConverter<T> : IStreamConverter
         {
             private Channel<T> _channel;
 
@@ -60,7 +65,7 @@ namespace Microsoft.AspNetCore.SignalR
                 _channel = Channel.CreateUnbounded<T>();
             }
 
-            public Type GetReturnType()
+            public Type GetItemType()
             {
                 return typeof(T);
             }

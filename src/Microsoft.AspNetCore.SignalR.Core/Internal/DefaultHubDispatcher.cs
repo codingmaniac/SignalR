@@ -81,7 +81,10 @@ namespace Microsoft.AspNetCore.SignalR.Internal
             switch (hubMessage)
             {
                 case InvocationBindingFailureMessage bindingFailureMessage:
-                    return ProcessBindingFailure(connection, bindingFailureMessage);
+                    return ProcessInvocationBindingFailure(connection, bindingFailureMessage);
+
+                case StreamBindingFailureMessage bindingFailureMessage:
+                    return ProcessStreamBindingFailure(connection, bindingFailureMessage);
 
                 case InvocationMessage invocationMessage:
                     Log.ReceivedHubInvocation(_logger, invocationMessage);
@@ -110,7 +113,7 @@ namespace Microsoft.AspNetCore.SignalR.Internal
                     connection.StartClientTimeout();
                     break;
 
-                case StreamItemMessage streamItem:
+                case StreamDataMessage streamItem:
                     Log.ReceivedStreamItem(_logger, streamItem);
                     return ProcessStreamItem(connection, streamItem);
 
@@ -130,31 +133,30 @@ namespace Microsoft.AspNetCore.SignalR.Internal
             return Task.CompletedTask;
         }
 
-        private Task ProcessBindingFailure(HubConnectionContext connection, InvocationBindingFailureMessage bindingFailureMessage)
+        private Task ProcessInvocationBindingFailure(HubConnectionContext connection, InvocationBindingFailureMessage bindingFailureMessage)
         {
             Log.FailedInvokingHubMethod(_logger, bindingFailureMessage.Target, bindingFailureMessage.BindingFailure.SourceException);
 
-            if (bindingFailureMessage.HasStream)
-            {
-                var errorString = ErrorMessageHelper.BuildErrorMessage(
-                    $"Failed to bind Stream Item arguments due to an error on the server.",
-                    bindingFailureMessage.BindingFailure.SourceException, _enableDetailedErrors);
 
-                var message = new StreamCompleteMessage(bindingFailureMessage.InvocationId, errorString);
-                Log.ClosingStreamWithBindingError(_logger, message);
-                connection.StreamTracker.Complete(message);
-
-                return Task.CompletedTask;
-            }
-            else
-            {
-                var errorMessage = ErrorMessageHelper.BuildErrorMessage($"Failed to invoke '{bindingFailureMessage.Target}' due to an error on the server.",
-                    bindingFailureMessage.BindingFailure.SourceException, _enableDetailedErrors);
-                return SendInvocationError(bindingFailureMessage.InvocationId, connection, errorMessage);
-            }
+            var errorMessage = ErrorMessageHelper.BuildErrorMessage($"Failed to invoke '{bindingFailureMessage.Target}' due to an error on the server.",
+                bindingFailureMessage.BindingFailure.SourceException, _enableDetailedErrors);
+            return SendInvocationError(bindingFailureMessage.InvocationId, connection, errorMessage);
         }
 
-        private Task ProcessStreamItem(HubConnectionContext connection, StreamItemMessage message)
+        private Task ProcessStreamBindingFailure(HubConnectionContext connection, StreamBindingFailureMessage bindingFailureMessage)
+        {
+            var errorString = ErrorMessageHelper.BuildErrorMessage(
+                $"Failed to bind Stream Item arguments to proper type.",
+                bindingFailureMessage.BindingFailure.SourceException, _enableDetailedErrors);
+
+            var message = new StreamCompleteMessage(bindingFailureMessage.Id, errorString);
+            Log.ClosingStreamWithBindingError(_logger, message);
+            connection.StreamTracker.Complete(message);
+
+            return Task.CompletedTask;
+        }
+
+        private Task ProcessStreamItem(HubConnectionContext connection, StreamDataMessage message)
         {
             Log.ReceivedStreamItem(_logger, message);
             return connection.StreamTracker.ProcessItem(message);
@@ -247,15 +249,15 @@ namespace Microsoft.AspNetCore.SignalR.Internal
                         _ = StreamResultsAsync(hubMethodInvocationMessage.InvocationId, connection, enumerator, scope, hubActivator, hub, streamCts);
                     }
 
-                    // Send Async, no response expected
                     else if (string.IsNullOrEmpty(hubMethodInvocationMessage.InvocationId))
                     {
+                        // Send Async, no response expected
                         invocation = ExecuteHubMethod(methodExecutor, hub, hubMethodInvocationMessage.Arguments);
                     }
 
-                    // Invoke Async, one reponse expected
                     else
                     {
+                        // Invoke Async, one reponse expected
                         async Task ExecuteInvocation()
                         {
                             var result = await ExecuteHubMethod(methodExecutor, hub, hubMethodInvocationMessage.Arguments);

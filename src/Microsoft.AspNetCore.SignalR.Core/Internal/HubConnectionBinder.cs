@@ -30,7 +30,7 @@ namespace Microsoft.AspNetCore.SignalR.Internal
 
         public Type GetStreamItemType(string streamId)
         {
-            return _connection.StreamTracker.Lookup[streamId].GetReturnType();
+            return _connection.StreamTracker.GetStreamItemType(streamId);
         }
     }
 }

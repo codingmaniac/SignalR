@@ -37,18 +37,5 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
             Target = target;
             BindingFailure = bindingFailure;
         }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="InvocationBindingFailureMessage"/> class.
-        /// </summary>
-        /// <param name="invocationId">The invocation ID.</param>
-        /// <param name="target">The target method name.</param>
-        /// <param name="bindingFailure">The exception thrown during binding.</param>
-        /// <param name="hasStream">Indicates if the error ocurred during a streaming invocation binding.</param>
-        public InvocationBindingFailureMessage(string invocationId, string target, ExceptionDispatchInfo bindingFailure, bool hasStream) 
-            : this(invocationId, target, bindingFailure)
-        {
-            HasStream = hasStream;
-        }
     }
 }

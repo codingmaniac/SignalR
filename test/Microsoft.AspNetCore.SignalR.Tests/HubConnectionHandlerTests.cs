@@ -2346,7 +2346,7 @@ namespace Microsoft.AspNetCore.SignalR.Tests
 
                 foreach (var letter in new[] { "B", "E", "A", "N", "E", "D" })
                 {
-                    await client.SendHubMessageAsync(new StreamItemMessage("id", letter)).OrTimeout();
+                    await client.SendHubMessageAsync(new StreamDataMessage("id", letter)).OrTimeout();
                 }
 
                 await client.SendHubMessageAsync(new StreamCompleteMessage("id")).OrTimeout();
@@ -2381,7 +2381,7 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                 var objects = new[] { new SampleObject("solo", 322), new SampleObject("ggez", 3145) };
                 foreach (var thing in objects)
                 {
-                    await client.SendHubMessageAsync(new StreamItemMessage("id", thing)).OrTimeout();
+                    await client.SendHubMessageAsync(new StreamDataMessage("id", thing)).OrTimeout();
                 }
 
                 await client.SendHubMessageAsync(new StreamCompleteMessage("id")).OrTimeout();
@@ -2417,7 +2417,7 @@ namespace Microsoft.AspNetCore.SignalR.Tests
 
                 foreach (var spot in order)
                 {
-                    await client.SendHubMessageAsync(new StreamItemMessage(spot.ToString(), words[spot][pos[spot]])).OrTimeout();
+                    await client.SendHubMessageAsync(new StreamDataMessage(spot.ToString(), words[spot][pos[spot]])).OrTimeout();
                     pos[spot] += 1;
                 }
 
@@ -2426,7 +2426,7 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                     await client.SendHubMessageAsync(new StreamCompleteMessage(id)).OrTimeout();
                     var response = await client.ReadAsync().OrTimeout();
                     Debug.Write(response);
-                    Assert.Equal(words[Int32.Parse(id)], ((CompletionMessage)response).Result);
+                    Assert.Equal(words[int.Parse(id)], ((CompletionMessage)response).Result);
                 }
             }
         }
@@ -2445,8 +2445,8 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                 await client.BeginUploadStreamAsync("invocation", nameof(MethodHub.StreamingConcat), new StreamPlaceholder("id")).OrTimeout();
 
                 // send integers that are then cast to strings
-                await client.SendHubMessageAsync(new StreamItemMessage("id", 5)).OrTimeout();
-                await client.SendHubMessageAsync(new StreamItemMessage("id", 10)).OrTimeout();
+                await client.SendHubMessageAsync(new StreamDataMessage("id", 5)).OrTimeout();
+                await client.SendHubMessageAsync(new StreamDataMessage("id", 10)).OrTimeout();
 
                 await client.SendHubMessageAsync(new StreamCompleteMessage("id")).OrTimeout();
                 var response = (CompletionMessage)await client.ReadAsync().OrTimeout();

@@ -204,20 +204,24 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
 
                                         hasItem = true;
 
-                                        if (string.IsNullOrEmpty(invocationId))
+
+                                        string id = null;
+                                        if (!string.IsNullOrEmpty(invocationId))
                                         {
-                                            // If we don't have an invocation id we can't look up the type now
-                                            // need to store it as a JToken so we can parse it later
+                                            id = invocationId;
+                                        }
+                                        else if (!string.IsNullOrEmpty(streamId))
+                                        {
+                                            id = streamId;
+                                        }
+                                        else
+                                        {
+                                            // If we don't have an id yetm then we need to it as a JToken to parse later
                                             itemToken = JToken.Load(reader);
                                             break;
                                         }
 
-                                        var itemType = binder.GetStreamItemType(invocationId);
-                                        if (itemType == null)
-                                        {
-                                            // if there's no matching id for this message, just ignore it
-                                            return null;
-                                        }
+                                        Type itemType = binder.GetStreamItemType(id);
 
                                         try
                                         {
@@ -225,7 +229,7 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                                         }
                                         catch (JsonSerializationException ex)
                                         {
-                                            return new InvocationBindingFailureMessage(invocationId, target, ExceptionDispatchInfo.Capture(ex), hasStream: true);
+                                            return new StreamBindingFailureMessage(id, target, ExceptionDispatchInfo.Capture(ex));
                                         }
                                         break;
                                     case ArgumentsPropertyName:
@@ -335,7 +339,14 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                         if (itemToken != null)
                         {
                             var itemType = binder.GetStreamItemType(streamId);
-                            item = itemToken.ToObject(itemType, PayloadSerializer);
+                            try
+                            {
+                                item = itemToken.ToObject(itemType, PayloadSerializer);
+                            }
+                            catch (JsonSerializationException ex)
+                            {
+                                return new StreamBindingFailureMessage(streamId, target, ExceptionDispatchInfo.Capture(ex));
+                            }
                         }
                         message = BindParamStreamMessage(streamId, item, hasItem, binder);
                         break;
@@ -343,7 +354,14 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                         if (itemToken != null)
                         {
                             var returnType = binder.GetStreamItemType(invocationId);
-                            item = itemToken.ToObject(returnType, PayloadSerializer);
+                            try
+                            {
+                                item = itemToken.ToObject(returnType, PayloadSerializer);
+                            }
+                            catch (JsonSerializationException ex)
+                            {
+                                return new StreamBindingFailureMessage(invocationId, target, ExceptionDispatchInfo.Capture(ex));
+                            };
                         }
 
                         message = BindStreamItemMessage(invocationId, item, hasItem, binder);
@@ -437,7 +455,7 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                             WriteHeaders(writer, m);
                             WriteStreamInvocationMessage(m, writer);
                             break;
-                        case ParamStreamMessage m:
+                        case StreamDataMessage m:
                             WriteMessageType(writer, HubProtocolConstants.ParameterStreamMessageType);
                             WriteParamStreamItemMessage(m, writer);
                             break;
@@ -534,7 +552,7 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
             PayloadSerializer.Serialize(writer, message.Item);
         }
 
-        private void WriteParamStreamItemMessage(ParamStreamMessage message, JsonTextWriter writer)
+        private void WriteParamStreamItemMessage(StreamDataMessage message, JsonTextWriter writer)
         {
             writer.WritePropertyName(StreamIdPropertyName);
             writer.WriteValue(message.StreamId);
@@ -647,7 +665,7 @@ namespace Microsoft.AspNetCore.SignalR.Protocol
                 throw new InvalidDataException($"Missing required property '{ItemPropertyName}");
             }
 
-            return new ParamStreamMessage(streamId, item);
+            return new StreamDataMessage(streamId, item);
         }
 
         private HubMessage BindStreamItemMessage(string invocationId, object item, bool hasItem, IInvocationBinder binder)

@@ -31,11 +31,9 @@ namespace ClientSample
                 .Build();
             await connection.StartAsync();
 
-            //await BasicInvoke(connection);
+            await BasicInvoke(connection);
             //await MultiParamInvoke(connection);
-            //await BasicSend(connection);
             //await AdditionalArgs(connection);
-            await InterleavedUploads(connection);
 
             return 0;
         }
@@ -79,73 +77,13 @@ namespace ClientSample
             Debug.WriteLine(result);
         }
 
-        public static async Task BasicSend(HubConnection connection)
-        {
-            //var letters = Channel.CreateUnbounded<string>();
-            var numbers = Channel.CreateUnbounded<int>();
-
-            // we can call the boy from here, since there's no need to wait on ~"completion"~
-            await connection.SendAsync("LocalSum", numbers.Reader);
-
-            _ = WriteStreamAsync(new[] { 37, 2, 3 }, numbers.Writer);
-
-            await Task.Delay(3000);
-            // the server will "Debug.WriteLine"
-        }
-
         public static async Task AdditionalArgs(HubConnection connection)
         {
-            var channel = Channel.CreateUnbounded<string>();
-            _ = WriteItemsAsync(channel.Writer);
+            var channel = Channel.CreateUnbounded<char>();
+            _ = WriteStreamAsync<char>("main message".ToCharArray(), channel.Writer);
 
             var result = await connection.InvokeAsync<string>("UploadWithSuffix", channel.Reader, " + wooh I'm a suffix");
             Debug.WriteLine($"Your message was: {result}");
-
-            async Task WriteItemsAsync(ChannelWriter<string> source)
-            {
-                await Task.Delay(1000);
-                foreach (char c in "streamed stuff")
-                {
-                    await source.WriteAsync(c.ToString());
-                    await Task.Delay(500);
-                }
-
-                // tryComplete triggers the end of this upload's relayLoop
-                // which sends a StreamComplete to the server
-                source.TryComplete();
-            }
-        }
-
-        public static async Task InterleavedUploads(HubConnection connection)
-        {
-            var channel_one = Channel.CreateBounded<string>(2);
-            _ = WriteItemsAsync(channel_one.Writer, "first message");
-            var taskOne = connection.InvokeAsync<string>("UploadWord", channel_one.Reader);
-
-            var channel_two = Channel.CreateBounded<string>(2);
-            _ = WriteItemsAsync(channel_two.Writer, "second message");
-            var taskTwo = connection.InvokeAsync<string>("UploadWord", channel_two.Reader);
-
-
-            var result_one = await taskOne;
-            var result_two = await taskTwo;
-
-            Debug.WriteLine($"MESSAGES: '{result_one}', '{result_two}'");
-
-
-            async Task WriteItemsAsync(ChannelWriter<string> source, string data)
-            {
-                await Task.Delay(1000);
-                foreach (char c in data)
-                {
-                    await source.WriteAsync(c.ToString());
-                    await Task.Delay(250);
-                }
-
-                // tryComplete triggers the end of this upload's relayLoop
-                // which sends a StreamComplete to the server
-                source.TryComplete();
-            }
         }
     }
 }

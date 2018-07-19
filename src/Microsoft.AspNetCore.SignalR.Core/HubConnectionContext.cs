@@ -58,6 +58,7 @@ namespace Microsoft.AspNetCore.SignalR
         {
             get
             {
+                // lazy for performance reasons
                 if (_streamTracker == null)
                 {
                     _streamTracker = new StreamTracker();

@@ -146,9 +146,9 @@ namespace Microsoft.AspNetCore.SignalR.Internal
                 _invalidReturnValueFromStreamingMethod(logger, hubMethod, null);
             }
 
-            public static void ReceivedStreamItem(ILogger logger, StreamItemMessage message)
+            public static void ReceivedStreamItem(ILogger logger, StreamDataMessage message)
             {
-                _receivedStreamItem(logger, message.InvocationId, null);
+                _receivedStreamItem(logger, message.StreamId, null);
             }
 
             public static void StartingParameterStream(ILogger logger, string streamId)
